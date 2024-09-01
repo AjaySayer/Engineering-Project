@@ -1,15 +1,7 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <Arduino.h>
-#include "sensitiveInformation.h"
-
-// Replace with your network credentials
-//const char* ssid = "JpDarwin";
-//const char* password = "250325Darwin1996";
-
-// Replace with the MQTT broker IP address and port (default port for MQTT is 1883)
-//const char* mqttServer = "192.168.1.118";  // This is often the default IP for a Windows hotspot; replace with actual IP
-//const int mqttPort = 1883;
+#include "../sensitiveInformation.h"
 
 // MQTT client setup
 WiFiClient espClient;
