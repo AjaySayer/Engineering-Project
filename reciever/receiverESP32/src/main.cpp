@@ -1,7 +1,7 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <Arduino.h>
-#include "../sensitiveInformation.h"
+#include "sensitiveInformation.h"
 
 // MQTT client setup
 WiFiClient espClient;
