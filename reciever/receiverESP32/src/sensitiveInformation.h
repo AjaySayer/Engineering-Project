@@ -9,13 +9,13 @@
  * 
  */
 
-const char* host = "RMS";
-const char* ssid = "CyberRange";       // Wifi Network Name
-const char* password = "CyberRange";  // Wifi Password
 
-String serverName = "http://192.168.1.10/CyberCity/dataTransfer.php";
+//Wifi network
+const char* ssid = "ssid";       // Wifi Network Name
+const char* password = "password";  // Wifi Password
 
-String apiKeyValue = "XjuTHh";
-
-String sensorName = "Temperature";
-String sensorLocation = "Fire Dept";
+//MQTT client name
+const char* mqttClient = "receiverESP32";
+// Replace with the MQTT broker IP address and port (default port for MQTT is 1883)
+const char* mqttServer = "192.168.1.118";  
+const int mqttPort = 1883;

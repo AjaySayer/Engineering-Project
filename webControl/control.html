@@ -25,7 +25,7 @@
         // Once a connection has been made, make a subscription and send a message.
             console.log("onConnect");
             client.subscribe("esp32/control");
-            message = new Paho.MQTT.Message("1");
+            message = new Paho.MQTT.Message("");
             message.destinationName = "esp32/control";
             client.send(message);
         }

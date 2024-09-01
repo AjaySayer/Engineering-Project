@@ -1,14 +1,15 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <Arduino.h>
+#include "sensitiveInformation.h"
 
 // Replace with your network credentials
-const char* ssid = "LAPTOP-APS";
-const char* password = "password";
+//const char* ssid = "JpDarwin";
+//const char* password = "250325Darwin1996";
 
 // Replace with the MQTT broker IP address and port (default port for MQTT is 1883)
-const char* mqttServer = "192.168.1.118";  // This is often the default IP for a Windows hotspot; replace with actual IP
-const int mqttPort = 1883;
+//const char* mqttServer = "192.168.1.118";  // This is often the default IP for a Windows hotspot; replace with actual IP
+//const int mqttPort = 1883;
 
 // MQTT client setup
 WiFiClient espClient;
@@ -33,6 +34,8 @@ void setup() {
   }
   Serial.println();
   Serial.println("Connected to WiFi");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
 
   // Setting up MQTT
   client.setServer(mqttServer, mqttPort);
@@ -42,7 +45,7 @@ void setup() {
   while (!client.connected()) {
     Serial.println("Connecting to MQTT...");
 
-    if (client.connect("ESP32_Client")) {
+    if (client.connect(mqttClient)) {
       Serial.println("Connected to MQTT");
       client.subscribe("esp32/control");  // Subscribe to the control topic
       Serial.println("Connected to topic");
