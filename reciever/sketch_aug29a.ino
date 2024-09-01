@@ -3,8 +3,8 @@
 #include <Arduino.h>
 
 // Replace with your network credentials
-const char* ssid = "JpDarwin";
-const char* password = "250325Darwin1996";
+const char* ssid = "LAPTOP-APS";
+const char* password = "password";
 
 // Replace with the MQTT broker IP address and port (default port for MQTT is 1883)
 const char* mqttServer = "192.168.1.118";  // This is often the default IP for a Windows hotspot; replace with actual IP

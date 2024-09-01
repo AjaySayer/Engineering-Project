@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ESP32 MQTT Control</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
+    <script>
+        // Create a client instance
+        //client = new Paho.MQTT.Client('ws://192.168.1.118:9001', 'webClient_' + Math.random().toString(16).slice(2));
+
+        //client = new Paho.MQTT.Client(location.hostname, Number(location.port), "clientId");
+
+        var client = new Paho.MQTT.Client("192.168.1.118",Number(9001),'webControl');
+
+        // set callback handlers
+        client.onConnectionLost = onConnectionLost;
+        client.onMessageArrived = onMessageArrived;
+
+        // connect the client
+        client.connect({onSuccess:onConnect});
+
+
+        // Called when the client connects
+        // called when the client connects
+        function onConnect() {
+        // Once a connection has been made, make a subscription and send a message.
+            console.log("onConnect");
+            client.subscribe("esp32/control");
+            message = new Paho.MQTT.Message("1");
+            message.destinationName = "esp32/control";
+            client.send(message);
+        }
+
+
+        // Called when the client fails to connect
+        // called when the client loses its connection
+        function onConnectionLost(responseObject) {
+            if (responseObject.errorCode !== 0) {
+                console.log("onConnectionLost:"+responseObject.errorMessage);
+            }
+        }       
+
+        // called when a message arrives
+        function onMessageArrived(message) {
+            console.log("onMessageArrived:"+message.payloadString);
+        }
+
+        // Send a message to a specific MQTT topic
+        function sendMessage(topic, message) {
+            const mqttMessage = new Paho.MQTT.Message(message);
+            mqttMessage.destinationName = topic;
+            client.send(mqttMessage);
+        }
+
+        // Update motor speed
+        function updateMotorSpeed(motor, value) {
+            sendMessage(`esp32/motor${motor}/speed`, value.toString());
+            document.getElementById(`speedValue${motor}`).innerText = value;
+        }
+
+        // Toggle LED
+        function toggleLED(state) {
+            sendMessage('esp32/control', state ? '1' : '0');
+        }
+
+    </script>
+</head>
+<body>
+    <h1>ESP32 MQTT Control Interface</h1>
+
+    <!-- Motor Speed Control -->
+    <div>
+        <h3>Motor 1 Speed</h3>
+        <input type="range" min="0" max="100" value="0" oninput="updateMotorSpeed(1, this.value)">
+        <span id="speedValue1">0</span>
+    </div>
+    <div>
+        <h3>Motor 2 Speed</h3>
+        <input type="range" min="0" max="100" value="0" oninput="updateMotorSpeed(2, this.value)">
+        <span id="speedValue2">0</span>
+    </div>
+
+    <!-- LED Control -->
+    <div>
+        <h3>LED Control</h3>
+        <button onclick="toggleLED(true)">Turn LED On</button>
+        <button onclick="toggleLED(false)">Turn LED Off</button>
+    </div>
+
+</body>
+</html>
