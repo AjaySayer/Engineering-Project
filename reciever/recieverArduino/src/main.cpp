@@ -1,54 +1,114 @@
+#include <Servo.h>
 #include <Arduino.h>
 
+// Motor control pins
+const int motorPin1A = 12;
+const int motorPin2A = 9;
+const int enablePinA = 3;
+const int motorPin1B = 13;
+const int motorPin2B = 8;
+const int enablePinB = 11;
 
-// Define motor control pins for motor A
-const int motorPin1 = 12;   // Direction IN1
-const int motorPin2 = 13;   // Direction IN2
-const int enablePin = 3;    // PWM speed control for Motor A
+// Servo objects and pins
+Servo continuousServo1, continuousServo2, servo180_1, servo180_2;
+const int continuousServo1Pin = 4, continuousServo2Pin = 6, servo180_1Pin = 7, servo180_2Pin = 10;
+
+void controlMotor(int pin1, int pin2, int enablePin, int speed);
+void processSerialData();
 
 void setup() {
-  // Set the motor control pins as outputs
-  pinMode(motorPin1, OUTPUT);
-  pinMode(motorPin2, OUTPUT);
-  pinMode(enablePin, OUTPUT);
-  
-  // Initialize Serial Monitor
-  Serial.begin(9600);
-  Serial.println("L298P Motor A Test Starting...");
+  pinMode(motorPin1A, OUTPUT);
+  pinMode(motorPin2A, OUTPUT);
+  pinMode(enablePinA, OUTPUT);
+  pinMode(motorPin1B, OUTPUT);
+  pinMode(motorPin2B, OUTPUT);
+  pinMode(enablePinB, OUTPUT);
+
+  continuousServo1.attach(continuousServo1Pin);
+  continuousServo2.attach(continuousServo2Pin);
+  servo180_1.attach(servo180_1Pin);
+  servo180_2.attach(servo180_2Pin);
+
+  Serial.begin(9600);  // UART communication
+  Serial.println("Arduino ready for binary data...");
 }
 
 void loop() {
-  // Set motor A to run forward at full speed
-  Serial.println("Running motor A forward...");
-  digitalWrite(motorPin1, HIGH);
-  Serial.println("motorPin1 set to HIGH (Forward)");
-  digitalWrite(motorPin2, LOW);
-  Serial.println("motorPin2 set to LOW");
-  analogWrite(enablePin, 255);  // Full speed (PWM 255)
-  Serial.println("PWM set to 255 (Full speed)");
+  processSerialData();
+}
 
-  delay(3000);  // Run for 3 seconds
+// Process incoming data as bytes
+void processSerialData() {
+  if (Serial.available() >= 3) {  // Ensure we have 3 bytes to read
+    char identifier = Serial.read();  // 1st byte: Identifier
+    int value = (Serial.read() << 8) | Serial.read();  // 2nd and 3rd bytes: 16-bit integer value
 
-  // // Stop the motor
-  // Serial.println("Stopping motor A...");
-  // analogWrite(enablePin, 0);  // Stop motor
-  // Serial.println("PWM set to 0 (Motor stopped)");
-  // delay(2000);
+    switch (identifier) {
+      case 'L':  // Left motor
+        controlMotor(motorPin1A, motorPin2A, enablePinA, value);
+        Serial.print("Left motor speed: ");
+        Serial.println(value);
+        break;
+        
+      case 'R':  // Right motor
+        controlMotor(motorPin1B, motorPin2B, enablePinB, value);
+        Serial.print("Right motor speed: ");
+        Serial.println(value);
+        break;
 
-  // // Set motor A to run backward at full speed
-  // Serial.println("Running motor A backward...");
-  // digitalWrite(motorPin1, LOW);
-  // Serial.println("motorPin1 set to LOW");
-  // digitalWrite(motorPin2, HIGH);
-  // Serial.println("motorPin2 set to HIGH (Backward)");
-  // analogWrite(enablePin, 255);  // Full speed
-  // Serial.println("PWM set to 255 (Full speed)");
+      case 'C':  // Continuous Servo 1
+        continuousServo1.write(value);
+        Serial.print("Continuous Servo 1: ");
+        Serial.println(value);
+        break;
 
-  // delay(3000);  // Run for 3 seconds
+      case 'D':  // Continuous Servo 2
+        continuousServo2.write(value);
+        Serial.print("Continuous Servo 2: ");
+        Serial.println(value);
+        break;
 
-  // // Stop the motor
-  // Serial.println("Stopping motor A...");
-  // analogWrite(enablePin, 0);  // Stop motor
-  // Serial.println("PWM set to 0 (Motor stopped)");
-  // delay(2000);
+      case 'S':  // 180-degree Servo 1
+        servo180_1.write(value);
+        Serial.print("180-degree Servo 1: ");
+        Serial.println(value);
+        break;
+
+      case 'T':  // 180-degree Servo 2
+        servo180_2.write(value);
+        Serial.print("180-degree Servo 2: ");
+        Serial.println(value);
+        break;
+
+      default:
+        Serial.println("Unknown command");
+        break;
+    }
+  }
+}
+
+// Function to control L298P motors
+void controlMotor(int pin1, int pin2, int enablePin, int speed) {
+  // Constrain the speed to the valid PWM range of 0 to 255
+  // int pwmValue = constrain(abs(speed), 0, 255);  // Get absolute speed and constrain
+  
+  if (speed > 0) {
+    // Move forward
+    digitalWrite(pin1, HIGH);
+    digitalWrite(pin2, LOW);
+  } 
+  else if (speed < 0) {
+    // Move backward
+    digitalWrite(pin1, LOW);
+    digitalWrite(pin2, LOW);
+    speed = -speed;
+  } 
+  else {
+    // Stop the motor (brake)
+    digitalWrite(pin2, HIGH);
+    // pwmValue = 0;  // No speed
+  }
+
+  // Apply PWM to the enable pin to control motor speed
+  analogWrite(enablePin, speed);
 }

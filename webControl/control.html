@@ -1,82 +1,233 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ESP32 MQTT Control</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
+    <style>
+        .slider-container {
+            display: flex;
+            flex-direction: row; /* Align items horizontally */
+            flex-wrap: wrap; /* Allow wrapping to new lines */
+            margin: 20px;
+            justify-content: space-around; /* Space out items */
+        }
+
+        .slider-wrapper {
+            display: flex;
+            flex-direction: column; /* Align label and slider vertically */
+            align-items: center;
+            margin: 10px;
+        }
+
+        .slider-container label {
+            margin-bottom: 10px;
+            min-width: 150px; /* Adjust as needed */
+        }
+
+        .slider {
+            -webkit-appearance: none; /* Remove default appearance */
+            appearance: none;
+            width: 200px; /* Adjust width for horizontal sliders */
+            height: 20px; /* Adjust height for horizontal sliders */
+            background: #ddd;
+            border-radius: 10px;
+            position: relative;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            background: #4CAF50;
+            cursor: pointer;
+            border-radius: 50%;
+            position: absolute;
+            top: -3px; /* Center the thumb vertically */
+            left: 0;
+        }
+
+        .slider::-moz-range-thumb {
+            width: 25px;
+            height: 25px;
+            background: #4CAF50;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+
+        .slider::-ms-thumb {
+            width: 25px;
+            height: 25px;
+            background: #4CAF50;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+
+        .slider-container span {
+            margin-top: 10px;
+            display: block;
+        }
+    </style>
     <script>
-        // Create a client instance
-        //client = new Paho.MQTT.Client('ws://192.168.1.118:9001', 'webClient_' + Math.random().toString(16).slice(2));
+        var client = new Paho.MQTT.Client("192.168.1.118", Number(9001), 'webControl');
 
-        //client = new Paho.MQTT.Client(location.hostname, Number(location.port), "clientId");
-
-        var client = new Paho.MQTT.Client("192.168.137.1",Number(9001),'webControl');
-
-        // set callback handlers
         client.onConnectionLost = onConnectionLost;
         client.onMessageArrived = onMessageArrived;
+        client.connect({onSuccess: onConnect});
 
-        // connect the client
-        client.connect({onSuccess:onConnect});
-
-
-        // Called when the client connects
-        // called when the client connects
         function onConnect() {
-        // Once a connection has been made, make a subscription and send a message.
             console.log("onConnect");
             client.subscribe("esp32/control");
-            message = new Paho.MQTT.Message("");
-            message.destinationName = "esp32/control";
-            client.send(message);
+            // Set default values for continuous servos
+            sendMessage('esp32/servo1/speed', '90');
+            sendMessage('esp32/servo2/speed', '90');
         }
 
-
-        // Called when the client fails to connect
-        // called when the client loses its connection
         function onConnectionLost(responseObject) {
             if (responseObject.errorCode !== 0) {
-                console.log("onConnectionLost:"+responseObject.errorMessage);
+                console.log("onConnectionLost:" + responseObject.errorMessage);
             }
-        }       
-
-        // called when a message arrives
-        function onMessageArrived(message) {
-            console.log("onMessageArrived:"+message.payloadString);
         }
 
-        // Send a message to a specific MQTT topic
+        function onMessageArrived(message) {
+            console.log("onMessageArrived:" + message.payloadString);
+        }
+
         function sendMessage(topic, message) {
             const mqttMessage = new Paho.MQTT.Message(message);
             mqttMessage.destinationName = topic;
             client.send(mqttMessage);
         }
 
-        // Update motor speed
         function updateMotorSpeed(motor, value) {
             sendMessage(`esp32/motor${motor}/speed`, value.toString());
             document.getElementById(`speedValue${motor}`).innerText = value;
         }
 
-        // Toggle LED
-        function toggleLED(state) {
-            sendMessage('esp32/control', state ? '1' : '0');
+        function updateServoAngle(servo, value) {
+            sendMessage(`esp32/servo180_${servo}/angle`, value.toString());
+            document.getElementById(`servoAngle${servo}`).innerText = value;
         }
 
+        function updateServoSpeed(servo, value) {
+            sendMessage(`esp32/servo${servo}/speed`, value.toString());
+            document.getElementById(`servoSpeed${servo}`).innerText = value;
+        }
+
+        function toggleLED(state) {
+            sendMessage('esp32/control/led', state ? '1' : '0');
+        }
+
+        function glideBackMotor(motor) {
+            let slider = document.getElementById(`motorSlider${motor}`);
+            let speed = parseInt(slider.value);
+            if (speed !== 0) {
+                let interval = setInterval(() => {
+                    let step = Math.max(1, Math.abs(speed) / 10);  // Faster when further from 0
+                    if (speed > 0) speed = Math.max(0, speed - step);
+                    else if (speed < 0) speed = Math.min(0, speed + step);
+                    slider.value = speed;
+                    updateMotorSpeed(motor, speed);
+                    if (speed === 0) clearInterval(interval);
+                }, 20);
+            }
+        }
+
+        function glideBackServo(servo) {
+            let slider = document.getElementById(`servoSlider${servo}`);
+            let angle = parseInt(slider.value);
+            if (angle !== 90) {
+                let interval = setInterval(() => {
+                    let step = Math.max(1, Math.abs(angle - 90) / 10);  // Faster when further from 90
+                    if (angle > 90) angle = Math.max(90, angle - step);
+                    else if (angle < 90) angle = Math.min(90, angle + step);
+                    slider.value = angle;
+                    updateServoAngle(servo, angle);
+                    if (angle === 90) clearInterval(interval);
+                }, 20);
+            }
+        }
+
+        function glideBackContinuousServo(servo) {
+            let slider = document.getElementById(`continuousServoSlider${servo}`);
+            let speed = parseInt(slider.value);
+            if (speed !== 90) {  // Adjust condition for continuous servos
+                let interval = setInterval(() => {
+                    let step = Math.max(1, Math.abs(speed - 90) / 10);  // Faster when further from 90
+                    if (speed > 90) speed = Math.max(90, speed - step);
+                    else if (speed < 90) speed = Math.min(90, speed + step);
+                    slider.value = speed;
+                    updateServoSpeed(servo, speed);
+                    if (speed === 90) clearInterval(interval);
+                }, 20);
+            }
+        }
+
+        window.onload = function() {
+            document.getElementById('continuousServoSlider1').value = 90;
+            document.getElementById('continuousServoSlider2').value = 90;
+            sendMessage('esp32/servo1/speed', '90');
+            sendMessage('esp32/servo2/speed', '90');
+        };
     </script>
 </head>
 <body>
     <h1>ESP32 MQTT Control Interface</h1>
 
     <!-- Motor Speed Control -->
-    <div>
-        <h3>Motor 1 Speed</h3>
-        <input type="range" min="0" max="100" value="0" oninput="updateMotorSpeed(1, this.value)">
-        <span id="speedValue1">0</span>
+    <div class="slider-container">
+        <div class="slider-wrapper">
+            <label for="motorSlider1">Motor 1 Speed</label>
+            <input type="range" id="motorSlider1" class="slider" min="-255" max="255" value="0" 
+                   oninput="updateMotorSpeed(1, this.value)" 
+                   onmouseup="glideBackMotor(1)">
+            <span id="speedValue1">0</span>
+        </div>
+        <div class="slider-wrapper">
+            <label for="motorSlider2">Motor 2 Speed</label>
+            <input type="range" id="motorSlider2" class="slider" min="-255" max="255" value="0" 
+                   oninput="updateMotorSpeed(2, this.value)" 
+                   onmouseup="glideBackMotor(2)">
+            <span id="speedValue2">0</span>
+        </div>
     </div>
-    <div>
-        <h3>Motor 2 Speed</h3>
-        <input type="range" min="0" max="100" value="0" oninput="updateMotorSpeed(2, this.value)">
-        <span id="speedValue2">0</span>
+
+    <!-- Servo Angle Control -->
+    <div class="slider-container">
+        <div class="slider-wrapper">
+            <label for="servoSlider1">Servo 1 Angle</label>
+            <input type="range" id="servoSlider1" class="slider" min="0" max="180" value="90" 
+                   oninput="updateServoAngle(1, this.value)" 
+                   onmouseup="glideBackServo(1)">
+            <span id="servoAngle1">90</span>
+        </div>
+        <div class="slider-wrapper">
+            <label for="servoSlider2">Servo 2 Angle</label>
+            <input type="range" id="servoSlider2" class="slider" min="0" max="180" value="90" 
+                   oninput="updateServoAngle(2, this.value)" 
+                   onmouseup="glideBackServo(2)">
+            <span id="servoAngle2">90</span>
+        </div>
+    </div>
+
+    <!-- Continuous Servo Speed Control -->
+    <div class="slider-container">
+        <div class="slider-wrapper">
+            <label for="continuousServoSlider1">Continuous Servo 1 Speed</label>
+            <input type="range" id="continuousServoSlider1" class="slider" min="0" max="180" value="90" 
+                   oninput="updateServoSpeed(1, this.value)" 
+                   onmouseup="glideBackContinuousServo(1)">
+            <span id="servoSpeed1">90</span>
+        </div>
+        <div class="slider-wrapper">
+            <label for="continuousServoSlider2">Continuous Servo 2 Speed</label>
+            <input type="range" id="continuousServoSlider2" class="slider" min="0" max="180" value="90" 
+                   oninput="updateServoSpeed(2, this.value)" 
+                   onmouseup="glideBackContinuousServo(2)">
+            <span id="servoSpeed2">90</span>
+        </div>
     </div>
 
     <!-- LED Control -->
@@ -85,6 +236,5 @@
         <button onclick="toggleLED(true)">Turn LED On</button>
         <button onclick="toggleLED(false)">Turn LED Off</button>
     </div>
-
 </body>
 </html>
