@@ -1,89 +1,84 @@
-#include <WiFi.h>
-#include <PubSubClient.h>
+#include <BleGamepad.h>
 #include <Arduino.h>
-#include "sensitiveInformation.h"
 
-// MQTT client setup
-WiFiClient espClient;
-PubSubClient client(espClient);
+// Initialize BLE gamepad
+BleGamepad bleGamepad;
+HardwareSerial SerialComm(1);  // UART1 for TX/RX communication
 
-// Declare the callback function prototype before setup()
-void callback(char* topic, byte* payload, unsigned int length);
+// Motor and servo variables
+int leftMotorSpeed = 0;
+int rightMotorSpeed = 0;
+int continuousServo1 = 90;
+int continuousServo2 = 90;
+int servo180_1 = 90;
+int servo180_2 = 90;
 
 void setup() {
   // Initialize Serial for debugging
-  Serial.begin(9600);
+  Serial.begin(115200);  // For debugging
+  
+  // Initialize UART for communication with Arduino
+  SerialComm.begin(9600, SERIAL_8N1, 16, 17);  // UART1, TX on GPIO 17, RX on GPIO 16
 
-  pinMode(18, OUTPUT);
+  // Start BLE Gamepad
+  bleGamepad.begin();
 
-  // Connecting to WiFi
-  WiFi.begin(ssid, password);
-  Serial.print("Connecting to WiFi");
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.print(".");
-  }
-  Serial.println();
-  Serial.println("Connected to WiFi");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-
-  // Setting up MQTT
-  client.setServer(mqttServer, mqttPort);
-  client.setCallback(callback);  // Set the callback function to handle incoming messages
-
-  // Connecting to MQTT Broker
-  while (!client.connected()) {
-    Serial.println("Connecting to MQTT...");
-
-    if (client.connect(mqttClient)) {
-      Serial.println("Connected to MQTT");
-      client.subscribe("esp32/control");  // Subscribe to the control topic
-      Serial.println("Connected to topic");
-    } else {
-      Serial.print("Failed with state ");
-      Serial.print(client.state());
-      delay(2000);
-    }
-  }
-}
-
-void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
-  }
-  Serial.println();
-
-  // Example: turn on/off an LED based on the message received
-  if ((char)payload[0] == '1') {
-    digitalWrite(18, HIGH);  // Turn the LED on
-    Serial.print("LED ON");
-  } else {
-    digitalWrite(18, LOW);  // Turn the LED off
-    Serial.print("LED OFF");
-  }
+  Serial.println("ESP32 is ready to connect to Xbox Controller...");
 }
 
 void loop() {
-  // Keep the MQTT client connected
-  if (!client.connected()) {
-    while (!client.connected()) {
-      Serial.println("Reconnecting to MQTT...");
+  // Check if the gamepad is connected
+  if (bleGamepad.isConnected()) {
+    // Get joystick input (range is -32768 to 32767)
+    int leftStickY = bleGamepad.getLeftYAxis();
+    int rightStickY = bleGamepad.getRightYAxis();
+    // Map joystick values to motor speed (-255 to 255)
+    leftMotorSpeed = map(leftStickY, -32768, 32767, -255, 255);
+    rightMotorSpeed = map(rightStickY, -32768, 32767, -255, 255);
 
-      if (client.connect("ESP32_Client")) {
-        Serial.println("Reconnected to MQTT");
-        client.subscribe("esp32/control");
-        Serial.println("Connected to topic");
-      } else {
-        Serial.print("Failed to reconnect, state ");
-        Serial.print(client.state());
-        delay(2000);
-      }
-    }
+    // Get button states (can map to servos)
+    bool buttonA = bleGamepad.isButtonPressed(BUTTON_A);  // Xbox A button
+    bool buttonB = bleGamepad.isButtonPressed(BUTTON_B);  // Xbox B button
+    int dpadX = bleGamepad.getDpadX();                    // D-pad X-axis
+
+    // Map buttons/D-Pad to servos
+    continuousServo1 = buttonA ? 180 : 90;
+    continuousServo2 = buttonB ? 180 : 90;
+    servo180_1 = map(dpadX, -32768, 32767, 0, 180);
+    servo180_2 = map(dpadX, -32768, 32767, 0, 180);
+
+    // Debug joystick values
+    Serial.print("Left Motor Speed: ");
+    Serial.println(leftMotorSpeed);
+    Serial.print("Right Motor Speed: ");
+    Serial.println(rightMotorSpeed);
+    Serial.print("Continuous Servo 1: ");
+    Serial.println(continuousServo1);
+    Serial.print("Continuous Servo 2: ");
+    Serial.println(continuousServo2);
+    Serial.print("180-degree Servo 1: ");
+    Serial.println(servo180_1);
+    Serial.print("180-degree Servo 2: ");
+    Serial.println(servo180_2);
+
+    // Send all data over UART to Arduino
+    SerialComm.print("L");
+    SerialComm.print(leftMotorSpeed);
+    SerialComm.print("R");
+    SerialComm.print(rightMotorSpeed);
+    SerialComm.print("C1");
+    SerialComm.print(continuousServo1);
+    SerialComm.print("C2");
+    SerialComm.print(continuousServo2);
+    SerialComm.print("S1");
+    SerialComm.print(servo180_1);
+    SerialComm.print("S2");
+    SerialComm.print(servo180_2);
+    SerialComm.println();  // End of line for Arduino
+
+    delay(50);  // Avoid flooding the serial line
+  } else {
+    Serial.println("Waiting for Xbox controller connection...");
+    delay(1000);
   }
-  client.loop();  // Check for incoming messages and keep the connection alive
 }

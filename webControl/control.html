@@ -9,7 +9,7 @@
 
         //client = new Paho.MQTT.Client(location.hostname, Number(location.port), "clientId");
 
-        var client = new Paho.MQTT.Client("192.168.1.118",Number(9001),'webControl');
+        var client = new Paho.MQTT.Client("192.168.137.1",Number(9001),'webControl');
 
         // set callback handlers
         client.onConnectionLost = onConnectionLost;
