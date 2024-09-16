@@ -13,8 +13,12 @@ const int enablePinB = 11;
 Servo continuousServo1, continuousServo2, servo180_1, servo180_2;
 const int continuousServo1Pin = 4, continuousServo2Pin = 6, servo180_1Pin = 7, servo180_2Pin = 10;
 
+// Serial buffer size
+const int BUFFER_SIZE = 4;
+
 void controlMotor(int pin1, int pin2, int enablePin, int speed);
-void processSerialData();
+void receiveData();
+void processMessage(char identifier, int value);
 
 void setup() {
   pinMode(motorPin1A, OUTPUT);
@@ -34,64 +38,112 @@ void setup() {
 }
 
 void loop() {
-  processSerialData();
+  receiveData();  // Process incoming data
 }
 
-// Process incoming data as bytes
-void processSerialData() {
-  if (Serial.available() >= 3) {  // Ensure we have 3 bytes to read
-    char identifier = Serial.read();  // 1st byte: Identifier
-    int value = (Serial.read() << 8) | Serial.read();  // 2nd and 3rd bytes: 16-bit integer value
+#define DEBUG 0  // Set to 1 to enable debug, 0 to disable
 
-    switch (identifier) {
-      case 'L':  // Left motor
-        controlMotor(motorPin1A, motorPin2A, enablePinA, value);
-        Serial.print("Left motor speed: ");
-        Serial.println(value);
-        break;
-        
-      case 'R':  // Right motor
-        controlMotor(motorPin1B, motorPin2B, enablePinB, value);
-        Serial.print("Right motor speed: ");
-        Serial.println(value);
-        break;
+void receiveData() {
+  static byte buffer[BUFFER_SIZE];
+  static int index = 0;
+  static bool receiving = false;
 
-      case 'C':  // Continuous Servo 1
-        continuousServo1.write(value);
-        Serial.print("Continuous Servo 1: ");
-        Serial.println(value);
-        break;
+  while (Serial.available()) {
+    byte incoming = Serial.read();
 
-      case 'D':  // Continuous Servo 2
-        continuousServo2.write(value);
-        Serial.print("Continuous Servo 2: ");
-        Serial.println(value);
-        break;
+    #if DEBUG
+    Serial.print("Incoming byte: ");
+    Serial.println(incoming, HEX);
+    #endif
 
-      case 'S':  // 180-degree Servo 1
-        servo180_1.write(value);
-        Serial.print("180-degree Servo 1: ");
-        Serial.println(value);
-        break;
+    if (incoming == 0xFF) {
+      receiving = true;  // Start receiving
+      index = 0;
+      #if DEBUG
+      Serial.println("Start Byte (0xFF) detected");
+      #endif
+    } else if (incoming == 0xFE && receiving) {
+      #if DEBUG
+      Serial.println("End Byte (0xFE) detected");
+      #endif
 
-      case 'T':  // 180-degree Servo 2
-        servo180_2.write(value);
-        Serial.print("180-degree Servo 2: ");
-        Serial.println(value);
-        break;
+      // End byte received, process buffer
+      if (index == BUFFER_SIZE) {
+        char identifier = buffer[0];
+        int value = (buffer[1] << 8) | buffer[2];
+        byte checksum = (identifier + buffer[1] + buffer[2]) & 0xFF;
 
-      default:
-        Serial.println("Unknown command");
-        break;
+        if (checksum == buffer[3]) {
+          #if DEBUG
+          Serial.println("Checksum verified. Processing message...");
+          #endif
+          processMessage(identifier, value);
+        } else {
+          #if DEBUG
+          Serial.println("Checksum error: message discarded");
+          #endif
+        }
+      }
+      receiving = false;  // Reset receiving flag
+    } else if (receiving && index < BUFFER_SIZE) {
+      buffer[index++] = incoming;  // Store byte in buffer
+      #if DEBUG
+      Serial.print("Buffering byte: ");
+      Serial.println(incoming, HEX);
+      #endif
     }
+  }
+}
+
+
+
+// Function to handle messages from the buffer
+void processMessage(char identifier, int value) {
+  switch (identifier) {
+    case 'L':  // Left motor
+      controlMotor(motorPin1A, motorPin2A, enablePinA, value);
+      Serial.print("Left motor speed: ");
+      Serial.println(value);
+      break;
+      
+    case 'R':  // Right motor
+      controlMotor(motorPin1B, motorPin2B, enablePinB, value);
+      Serial.print("Right motor speed: ");
+      Serial.println(value);
+      break;
+
+    case 'C':  // Continuous Servo 1
+      continuousServo1.write(value);
+      Serial.print("Continuous Servo 1: ");
+      Serial.println(value);
+      break;
+
+    case 'D':  // Continuous Servo 2
+      continuousServo2.write(value);
+      Serial.print("Continuous Servo 2: ");
+      Serial.println(value);
+      break;
+
+    case 'S':  // 180-degree Servo 1
+      servo180_1.write(value);
+      Serial.print("180-degree Servo 1: ");
+      Serial.println(value);
+      break;
+
+    case 'T':  // 180-degree Servo 2
+      servo180_2.write(value);
+      Serial.print("180-degree Servo 2: ");
+      Serial.println(value);
+      break;
+
+    default:
+      Serial.println("Unknown command");
+      break;
   }
 }
 
 // Function to control L298P motors
 void controlMotor(int pin1, int pin2, int enablePin, int speed) {
-  // Constrain the speed to the valid PWM range of 0 to 255
-  // int pwmValue = constrain(abs(speed), 0, 255);  // Get absolute speed and constrain
-  
   if (speed > 0) {
     // Move forward
     digitalWrite(pin1, HIGH);
@@ -106,7 +158,6 @@ void controlMotor(int pin1, int pin2, int enablePin, int speed) {
   else {
     // Stop the motor (brake)
     digitalWrite(pin2, HIGH);
-    // pwmValue = 0;  // No speed
   }
 
   // Apply PWM to the enable pin to control motor speed

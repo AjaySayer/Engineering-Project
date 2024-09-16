@@ -63,10 +63,16 @@ void callback(char* topic, byte* message, unsigned int length) {
 
 // Send binary data over serial
 void sendToArduino(char identifier, int value) {
-  Serial.write(identifier);                // Send 1st byte (identifier)
-  Serial.write((value >> 8) & 0xFF);       // Send 2nd byte (high byte of value)
-  Serial.write(value & 0xFF);              // Send 3rd byte (low byte of value)
+  byte checksum = (identifier + (value >> 8) + (value & 0xFF)) & 0xFF;
+  
+  Serial.write(0xFF);                   // Start byte
+  Serial.write(identifier);             // Send identifier
+  Serial.write((value >> 8) & 0xFF);    // High byte
+  Serial.write(value & 0xFF);           // Low byte
+  Serial.write(checksum);               // Checksum
+  Serial.write(0xFE);                   // End byte
 }
+
 
 // Wi-Fi setup function
 void setup_wifi() {
@@ -83,6 +89,7 @@ void setup_wifi() {
 // Reconnect to MQTT broker
 void reconnect() {
   while (!client.connected()) {
+    Serial.println("Connecting...");
     if (client.connect(mqttClient)) {
       client.subscribe(topicLeftMotor);
       client.subscribe(topicRightMotor);
@@ -90,6 +97,7 @@ void reconnect() {
       client.subscribe(topicServo2);
       client.subscribe(topicServo180_1);
       client.subscribe(topicServo180_2);
+      Serial.println("Connected");
     } else {
       delay(5000);
     }
