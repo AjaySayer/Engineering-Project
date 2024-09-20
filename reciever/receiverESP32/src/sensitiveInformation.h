@@ -11,11 +11,11 @@
 
 
 //Wifi network
-const char* ssid = "JpDarwin";       // Wifi Network Name
-const char* password = "250325Darwin1996";  // Wifi Password
+const char* ssid = "LAPTOP-APS";       // Wifi Network Name
+const char* password = "7F03#x41";  // Wifi Password
 
 //MQTT client name
 const char* mqttClient = "receiverESP32";
 // Replace with the MQTT broker IP address and port (default port for MQTT is 1883)
-const char* mqttServer = "192.168.1.118";  
+const char* mqttServer = "192.168.137.1";  
 const int mqttPort = 1883;

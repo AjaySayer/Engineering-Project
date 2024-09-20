@@ -71,7 +71,7 @@
         }
     </style>
     <script>
-        var client = new Paho.MQTT.Client("192.168.1.118", Number(9001), 'webControl');
+        var client = new Paho.MQTT.Client("192.168.137.1", Number(9001), 'webControl');
 
         client.onConnectionLost = onConnectionLost;
         client.onMessageArrived = onMessageArrived;
