@@ -17,6 +17,7 @@ const char* topicServo180_2 = "esp32/servo180_2/angle";
 
 void setup_wifi();
 void reconnect();
+void joystick1();
 
 void setup() {
   Serial.begin(9600);
@@ -63,17 +64,49 @@ void loop() {
   }
   client.loop();
 
-  int potValue = analogRead(21);
-  int mappedValue = map(potValue, 0, 4095, -90, 90);
+  joystick1();
 
+  // int potValue = analogRead(34);
+  // int mappedValue = map(potValue, 0, 4095, -90, 90);
+
+  // if ((mappedValue > 24) || (mappedValue < -24)) {
+  //   mappedValue = 0;
+  // } 
+  // char msg[50];
+  // snprintf(msg, 50, "%d", mappedValue);
+  // client.publish(topicServo1, msg);
+
+  // Serial.print("Potentiometer value: ");
+  // Serial.print(potValue);
+  // Serial.print(" Mapped value: ");
+  // Serial.println(mappedValue);
+
+  // delay(25);
+}
+
+void joystick1() {
+
+  int potValueX = analogRead(34);
+  int potValueY = analogRead(35);
+
+  int mappedValueX = map(potValueX, 0, 4095, -90, 90);
+  int mappedValueY = map(potValueY, 0, 4095, -90, 90);
+  // Serial.println(potValueX);
+  // Serial.println(potValueY);
+
+  if ((mappedValueX < 24) && (mappedValueX > -24)) {
+    mappedValueX = 0;
+  }
   char msg[50];
-  snprintf(msg, 50, "%d", mappedValue);
+  snprintf(msg, 50, "%d", mappedValueX);
   client.publish(topicServo1, msg);
 
-  Serial.print("Potentiometer value: ");
-  Serial.print(potValue);
-  Serial.print(" Mapped value: ");
-  Serial.println(mappedValue);
+  if ((mappedValueY < 24) && (mappedValueY > -24)) {
+    mappedValueY = 0;
+  } 
+  //char msg[50];
+  snprintf(msg, 50, "%d", mappedValueY);
+  client.publish(topicServo2, msg);
 
-  delay(1000);
+
 }
