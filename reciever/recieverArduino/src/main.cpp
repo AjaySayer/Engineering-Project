@@ -14,7 +14,10 @@ Servo continuousServo1, continuousServo2, servo180_1, servo180_2;
 const int continuousServo1Pin = 4, continuousServo2Pin = 6, servo180_1Pin = 7, servo180_2Pin = 10;
 
 // Serial buffer size
-const int BUFFER_SIZE = 4;
+const int BUFFER_SIZE = 5;
+
+//Serial.print
+#define SERIAL 1
 
 void controlMotor(int pin1, int pin2, int enablePin, int speed);
 void receiveData();
@@ -70,13 +73,15 @@ void receiveData() {
       // End byte received, process buffer
       if (index == BUFFER_SIZE) {
         char identifier = buffer[0];
-        int value = (buffer[1] << 8) | buffer[2];
-        byte checksum = (identifier + buffer[1] + buffer[2]) & 0xFF;
+        byte sign = buffer[1];
+        int value = (buffer[2] << 8) | buffer[3];
+        byte checksum = (identifier + sign + buffer[2] + buffer[3]) & 0xFF;
 
-        if (checksum == buffer[3]) {
+        if (checksum == buffer[4]) {
           #if DEBUG
           Serial.println("Checksum verified. Processing message...");
           #endif
+          if (sign == 1) value = -value;  // Apply sign
           processMessage(identifier, value);
         } else {
           #if DEBUG
@@ -102,42 +107,56 @@ void processMessage(char identifier, int value) {
   switch (identifier) {
     case 'L':  // Left motor
       controlMotor(motorPin1A, motorPin2A, enablePinA, value);
+      #if SERIAL
       Serial.print("Left motor speed: ");
       Serial.println(value);
+      #endif
       break;
       
     case 'R':  // Right motor
       controlMotor(motorPin1B, motorPin2B, enablePinB, value);
+      #if SERIAL
       Serial.print("Right motor speed: ");
       Serial.println(value);
+      #endif
       break;
 
     case 'C':  // Continuous Servo 1
       continuousServo1.write(value);
+      #if SERIAL
       Serial.print("Continuous Servo 1: ");
       Serial.println(value);
+      #endif
       break;
 
     case 'D':  // Continuous Servo 2
       continuousServo2.write(value);
+      #if SERIAL
       Serial.print("Continuous Servo 2: ");
       Serial.println(value);
+      #endif
       break;
 
     case 'S':  // 180-degree Servo 1
       servo180_1.write(value);
+      #if SERIAL
       Serial.print("180-degree Servo 1: ");
       Serial.println(value);
+      #endif
       break;
 
     case 'T':  // 180-degree Servo 2
       servo180_2.write(value);
+      #if SERIAL
       Serial.print("180-degree Servo 2: ");
       Serial.println(value);
+      #endif
       break;
 
     default:
+      #if SERIAL
       Serial.println("Unknown command");
+      #endif
       break;
   }
 }
