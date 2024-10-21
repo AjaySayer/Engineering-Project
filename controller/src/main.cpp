@@ -1,21 +1,10 @@
 #include <WiFi.h>
-#include <PubSubClient.h>
+#include <esp_now.h>
 #include <Arduino.h>
-#include "sensitiveInformation.h"
 
-// Initialize WiFi and MQTT clients
-WiFiClient espClient;
-PubSubClient client(espClient);
+#define BUTTON_PIN 25
 
-// MQTT Topics
-const char* topicLeftMotor = "esp32/motor1/speed";
-const char* topicRightMotor = "esp32/motor2/speed";
-const char* topicServo1 = "esp32/servo1/speed";
-const char* topicServo2 = "esp32/servo2/speed";
-const char* topicServo180_1 = "esp32/servo180_1/angle";
-const char* topicServo180_2 = "esp32/servo180_2/angle";
-
-// Variables to track the previous state
+// Variables to track previous state
 int prevMappedValueX1 = 0;
 int prevMappedValueY1 = 90;
 int prevMappedValueX2 = 0;
@@ -23,61 +12,67 @@ int prevMappedValueY2 = 90;
 int prevMappedValueX3 = 90;
 int prevMappedValueY3 = 90;
 
-void setup_wifi();
-void reconnect();
+// MAC address of the receiver ESP32A4:CF:12:77:02:C4
+uint8_t receiverMAC[] = {0xA4, 0xCF, 0x12, 0x77, 0x02, 0xC4}; // Replace with actual MAC
+
+// Structure to send data
+typedef struct struct_message {
+  int motor1Speed;
+  int motor2Speed;
+  int servo1Angle;
+  int servo2Angle;
+  int servo180_1Angle;
+  int servo180_2Angle;
+} struct_message;
+
+// Create a structured message
+struct_message myData;
+
 void joystick1();
 void joystick2();
 void joystick3();
 
 void setup() {
   Serial.begin(9600);
-  setup_wifi();
-  client.setServer(mqttServer, 1883);
-}
+  WiFi.mode(WIFI_STA); // Set device as Station (STA)
 
-void setup_wifi() {
-  delay(10);
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
 
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  // Init ESP-NOW
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error initializing ESP-NOW");
+    return;
   }
 
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
-}
-
-void reconnect() {
-  while (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
-    if (client.connect("ESP32Client")) {
-      Serial.println("connected");
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      delay(5000);
-    }
+  // Register peer
+  esp_now_peer_info_t peerInfo;
+  memcpy(peerInfo.peer_addr, receiverMAC, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer");
+    return;
   }
 }
 
 void loop() {
-  if (!client.connected()) {
-    reconnect();
-  }
-  client.loop();
-
   joystick1();
   joystick2();
   joystick3();
 
+  // Check if the button is pressed
+  if (digitalRead(BUTTON_PIN) == LOW) {
+    // Send reset command to the receiver
+    char resetMsg[] = "RESET";
+    Serial.println("Reset Button Pressed");
+    esp_now_send(receiverMAC, (uint8_t *) resetMsg, sizeof(resetMsg));
+    delay(1000);  // Debounce delay
+  }
+
+
+
+  // Send data to receiver ESP32
+  esp_now_send(receiverMAC, (uint8_t *) &myData, sizeof(myData));
   delay(50);
 }
 
@@ -89,30 +84,20 @@ void joystick1() {
   int mappedValueY = map(potValueY, 0, 4095, 0, 180);
 
   if (mappedValueX != prevMappedValueX1) {
-    if (mappedValueX >= 50 || mappedValueX <= -50 ) {
-      char msg[50];
-      snprintf(msg, 50, "%d", mappedValueX);
-      client.publish(topicLeftMotor, msg);
+    if (mappedValueX >= 50 || mappedValueX <= -50) {
+      myData.motor1Speed = mappedValueX;
       prevMappedValueX1 = mappedValueX;
     } else {
-      char msg[50];
-      mappedValueX = 0;
-      snprintf(msg, 50, "%d", mappedValueX);
-      client.publish(topicLeftMotor, msg);
+      myData.motor1Speed = 0;
       prevMappedValueX1 = mappedValueX;
     }
   }
   if (mappedValueY != prevMappedValueY1) {
     if (mappedValueY <= 65 || mappedValueY >= 115) {
-      char msg[50];
-      snprintf(msg, 50, "%d", mappedValueY);
-      client.publish(topicServo1, msg);
+      myData.servo1Angle = mappedValueY;
       prevMappedValueY1 = mappedValueY;
     } else {
-      char msg[50];
-      mappedValueY = 90;
-      snprintf(msg, 50, "%d", mappedValueY);
-      client.publish(topicServo1, msg);
+      myData.servo1Angle = 90;
       prevMappedValueY1 = mappedValueY;
     }
   }
@@ -126,30 +111,20 @@ void joystick2() {
   int mappedValueY = map(potValueY, 0, 4095, 0, 180);
 
   if (mappedValueX != prevMappedValueX2) {
-    if (mappedValueX >= 50 || mappedValueX <= -50 ) {
-      char msg[50];
-      snprintf(msg, 50, "%d", mappedValueX);
-      client.publish(topicRightMotor, msg);
+    if (mappedValueX >= 50 || mappedValueX <= -50) {
+      myData.motor2Speed = mappedValueX;
       prevMappedValueX2 = mappedValueX;
     } else {
-      char msg[50];
-      mappedValueX = 0;
-      snprintf(msg, 50, "%d", mappedValueX);
-      client.publish(topicRightMotor, msg);
+      myData.motor2Speed = 0;
       prevMappedValueX2 = mappedValueX;
     }
   }
   if (mappedValueY != prevMappedValueY2) {
     if (mappedValueY <= 65 || mappedValueY >= 115) {
-      char msg[50];
-      snprintf(msg, 50, "%d", mappedValueY);
-      client.publish(topicServo2, msg);
+      myData.servo2Angle = mappedValueY;
       prevMappedValueY2 = mappedValueY;
     } else {
-      char msg[50];
-      mappedValueY = 90;
-      snprintf(msg, 50, "%d", mappedValueY);
-      client.publish(topicServo2, msg);
+      myData.servo2Angle = 90;
       prevMappedValueY2 = mappedValueY;
     }
   }
@@ -161,31 +136,22 @@ void joystick3() {
 
   int mappedValueX = map(potValueX, 0, 4095, 0, 180);
   int mappedValueY = map(potValueY, 0, 4095, 0, 180);
+
   if (mappedValueX != prevMappedValueX3) {
     if (mappedValueX <= 65 || mappedValueX >= 115) {
-      char msg[50];
-      snprintf(msg, 50, "%d", mappedValueX);
-      client.publish(topicServo180_1, msg);
+      myData.servo180_1Angle = mappedValueX;
       prevMappedValueX3 = mappedValueX;
     } else {
-      char msg[50];
-      mappedValueX = 90;
-      snprintf(msg, 50, "%d", mappedValueX);
-      client.publish(topicServo180_1, msg);
+      myData.servo180_1Angle = 90;
       prevMappedValueX3 = mappedValueX;
     }
   }
   if (mappedValueY != prevMappedValueY3) {
     if (mappedValueY <= 65 || mappedValueY >= 115) {
-      char msg[50];
-      snprintf(msg, 50, "%d", mappedValueY);
-      client.publish(topicServo180_2, msg);
+      myData.servo180_2Angle = mappedValueY;
       prevMappedValueY3 = mappedValueY;
     } else {
-      char msg[50];
-      mappedValueY = 90;
-      snprintf(msg, 50, "%d", mappedValueY);
-      client.publish(topicServo180_2, msg);
+      myData.servo180_2Angle = 90;
       prevMappedValueY3 = mappedValueY;
     }
   }

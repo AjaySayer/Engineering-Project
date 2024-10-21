@@ -1,6 +1,5 @@
-#include <esp_now.h>
-#include <WiFi.h>
-#include <ESP32Servo.h>
+#include <Servo.h>
+#include <Arduino.h>
 
 // Motor control pins
 const int motorPin1A = 12;
@@ -14,36 +13,17 @@ const int enablePinB = 11;
 Servo continuousServo1, continuousServo2, servo180_1, servo180_2;
 const int continuousServo1Pin = 4, continuousServo2Pin = 6, servo180_1Pin = 7, servo180_2Pin = 10;
 
-// Structure to receive data
-typedef struct struct_message {
-  char identifier;  // Command identifier: L, R, C, D, S, T
-  int value;        // Command value
-} struct_message;
+// Serial buffer size
+const int BUFFER_SIZE = 5;
 
-struct_message incomingData;
+//Serial.print
+#define SERIAL 1
 
-// Function declarations
 void controlMotor(int pin1, int pin2, int enablePin, int speed);
+void receiveData();
 void processMessage(char identifier, int value);
 
-// Callback function when data is received
-void OnDataRecv(const uint8_t *mac_addr, const uint8_t *data, int len) {
-  // Ensure the data length matches the size of our struct
-  Serial.println("Recieved Message");
-  if (len == sizeof(struct_message)) {
-    // Cast the incoming data to our struct
-    struct_message incomingData;
-    memcpy(&incomingData, data, sizeof(incomingData));
-
-    // Process the message
-    processMessage(incomingData.identifier, incomingData.value);
-  } else {
-    Serial.println("Received data does not match expected size");
-  }
-}
-
 void setup() {
-  // Initialize motor and servo pins
   pinMode(motorPin1A, OUTPUT);
   pinMode(motorPin2A, OUTPUT);
   pinMode(enablePinA, OUTPUT);
@@ -56,65 +36,127 @@ void setup() {
   servo180_1.attach(servo180_1Pin);
   servo180_2.attach(servo180_2Pin);
 
-  // Initialize serial for debugging
-  Serial.begin(9600);
-
-  // Set up ESP-NOW
-  WiFi.mode(WIFI_STA);
-  if (esp_now_init() != ESP_OK) {
-    Serial.println("Error initializing ESP-NOW");
-    return;
-  }
-
-  // Register the receive callback
-  esp_now_register_recv_cb(OnDataRecv);
+  Serial.begin(9600);  // UART communication
+  Serial.println("Arduino ready for binary data...");
 }
 
 void loop() {
-  // Nothing needed in the loop; everything happens via ESP-NOW callback
+  receiveData();  // Process incoming data
 }
 
-// Function to handle the messages
+#define DEBUG 0  // Set to 1 to enable debug, 0 to disable
+
+void receiveData() {
+  static byte buffer[BUFFER_SIZE];
+  static int index = 0;
+  static bool receiving = false;
+
+  while (Serial.available()) {
+    byte incoming = Serial.read();
+
+    #if DEBUG
+    Serial.print("Incoming byte: ");
+    Serial.println(incoming, HEX);
+    #endif
+
+    if (incoming == 0xFF) {
+      receiving = true;  // Start receiving
+      index = 0;
+      #if DEBUG
+      Serial.println("Start Byte (0xFF) detected");
+      #endif
+    } else if (incoming == 0xFE && receiving) {
+      #if DEBUG
+      Serial.println("End Byte (0xFE) detected");
+      #endif
+
+      // End byte received, process buffer
+      if (index == BUFFER_SIZE) {
+        char identifier = buffer[0];
+        byte sign = buffer[1];
+        int value = (buffer[2] << 8) | buffer[3];
+        byte checksum = (identifier + sign + buffer[2] + buffer[3]) & 0xFF;
+
+        if (checksum == buffer[4]) {
+          #if DEBUG
+          Serial.println("Checksum verified. Processing message...");
+          #endif
+          if (sign == 1) value = -value;  // Apply sign
+          processMessage(identifier, value);
+        } else {
+          #if DEBUG
+          Serial.println("Checksum error: message discarded");
+          #endif
+        }
+      }
+      receiving = false;  // Reset receiving flag
+    } else if (receiving && index < BUFFER_SIZE) {
+      buffer[index++] = incoming;  // Store byte in buffer
+      #if DEBUG
+      Serial.print("Buffering byte: ");
+      Serial.println(incoming, HEX);
+      #endif
+    }
+  }
+}
+
+
+
+// Function to handle messages from the buffer
 void processMessage(char identifier, int value) {
   switch (identifier) {
     case 'L':  // Left motor
       controlMotor(motorPin1A, motorPin2A, enablePinA, value);
+      #if SERIAL
       Serial.print("Left motor speed: ");
       Serial.println(value);
+      #endif
       break;
-
+      
     case 'R':  // Right motor
       controlMotor(motorPin1B, motorPin2B, enablePinB, value);
+      #if SERIAL
       Serial.print("Right motor speed: ");
       Serial.println(value);
+      #endif
       break;
 
     case 'C':  // Continuous Servo 1
       continuousServo1.write(value);
+      #if SERIAL
       Serial.print("Continuous Servo 1: ");
       Serial.println(value);
+      #endif
       break;
 
     case 'D':  // Continuous Servo 2
       continuousServo2.write(value);
+      #if SERIAL
       Serial.print("Continuous Servo 2: ");
       Serial.println(value);
+      #endif
       break;
 
     case 'S':  // 180-degree Servo 1
       servo180_1.write(value);
+      #if SERIAL
       Serial.print("180-degree Servo 1: ");
       Serial.println(value);
+      #endif
       break;
 
     case 'T':  // 180-degree Servo 2
       servo180_2.write(value);
+      #if SERIAL
       Serial.print("180-degree Servo 2: ");
       Serial.println(value);
+      #endif
       break;
 
     default:
+      #if SERIAL
       Serial.println("Unknown command");
+      #endif
       break;
   }
 }
