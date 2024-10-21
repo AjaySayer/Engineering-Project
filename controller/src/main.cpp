@@ -46,6 +46,7 @@ void setup() {
 
   // Register peer
   esp_now_peer_info_t peerInfo;
+  memset(&peerInfo, 0, sizeof(peerInfo));
   memcpy(peerInfo.peer_addr, receiverMAC, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
@@ -53,6 +54,8 @@ void setup() {
     Serial.println("Failed to add peer");
     return;
   }
+  Serial.println("end of setup func");
+  Serial.println("Peer Added?");
 }
 
 void loop() {
@@ -66,14 +69,15 @@ void loop() {
     char resetMsg[] = "RESET";
     Serial.println("Reset Button Pressed");
     esp_now_send(receiverMAC, (uint8_t *) resetMsg, sizeof(resetMsg));
-    delay(1000);  // Debounce delay
+    //delay(1000);  // Debounce delay
   }
 
 
 
   // Send data to receiver ESP32
   esp_now_send(receiverMAC, (uint8_t *) &myData, sizeof(myData));
-  delay(50);
+  // Serial.println("Completed loop function + maybe sent data");
+  
 }
 
 void joystick1() {
