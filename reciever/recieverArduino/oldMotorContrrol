@@ -1,0 +1,7 @@
+// Motor control pins
+const int motorPin1A = 12;
+const int motorPin2A = 9;
+const int enablePinA = 3;
+const int motorPin1B = 13;
+const int motorPin2B = 8;
+const int enablePinB = 11;
