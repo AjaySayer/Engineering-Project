@@ -3,20 +3,22 @@
 #include <ESP32Servo.h>
 
 // Motor control pins
-const int motorPin1A = 12;
-const int motorPin2A = 9;
-const int enablePinA = 3;
-const int motorPin1B = 13;
-const int motorPin2B = 8;
-const int enablePinB = 11;
+const int motorPin1A = 21;
+const int motorPin2A = 17;
+const int enablePinA = 16;
+const int motorPin1B = 19;
+const int motorPin2B = 18;
+const int enablePinB = 5;
+
 
 // Servo objects and pins
 Servo continuousServo1, continuousServo2, servo180_1, servo180_2;
-const int continuousServo1Pin = 4, continuousServo2Pin = 6, servo180_1Pin = 7, servo180_2Pin = 10;
+const int continuousServo1Pin = 15, continuousServo2Pin = 32, servo180_1Pin = 14, servo180_2Pin = 4;
+
 
 // Structure to receive data
 typedef struct struct_message {
-  char identifier;  // Command identifier: L, R, C, D, S, T
+  char identifier;  // Command identifier: L, R, C, D, S, T, X
   int value;        // Command value
 } struct_message;
 
@@ -29,7 +31,7 @@ void processMessage(char identifier, int value);
 // Callback function when data is received
 void OnDataRecv(const uint8_t *mac_addr, const uint8_t *data, int len) {
   // Ensure the data length matches the size of our struct
-  Serial.println("Recieved Message");
+  // Serial.println("Recieved Message");
   if (len == sizeof(struct_message)) {
     // Cast the incoming data to our struct
     struct_message incomingData;
@@ -65,6 +67,7 @@ void setup() {
     Serial.println("Error initializing ESP-NOW");
     return;
   }
+  Serial.print("INIT");
 
   // Register the receive callback
   esp_now_register_recv_cb(OnDataRecv);
@@ -111,6 +114,11 @@ void processMessage(char identifier, int value) {
       servo180_2.write(value);
       Serial.print("180-degree Servo 2: ");
       Serial.println(value);
+      break;
+
+    case 'X': //Button
+      ESP.restart();
+      Serial.print("Reset Button Pressed");
       break;
 
     default:
