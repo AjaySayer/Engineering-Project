@@ -117,8 +117,8 @@ void processMessage(char identifier, int value) {
       break;
 
     case 'X': //Button
-      ESP.restart();
       Serial.print("Reset Button Pressed");
+      ESP.restart();
       break;
 
     default:

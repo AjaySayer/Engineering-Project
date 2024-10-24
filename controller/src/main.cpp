@@ -6,15 +6,15 @@
 
 // Variables to track previous state
 int prevMappedValueX1 = 0;
-int prevMappedValueY1 = 90;
-int prevMappedValueX2 = 0;
+// int prevMappedValueY1 = 90;
+int prevMappedValueX2 = 90;
 int prevMappedValueY2 = 90;
 int prevMappedValueX3 = 90;
 int prevMappedValueY3 = 90;
 
 int prevMessageSentX1 = 0;
-int prevMessageSentY1 = 90;
-int prevMessageSentX2 = 0;
+// int prevMessageSentY1 = 90;
+int prevMessageSentX2 = 90;
 int prevMessageSentY2 = 90;
 int prevMessageSentX3 = 90;
 int prevMessageSentY3 = 90;
@@ -111,6 +111,7 @@ void joystick1() {
     prevMappedValueX1 = myData.value; // Update the previous value
   }
 
+  /*
   // Send servo angle change
   if (mappedValueY != prevMappedValueY1) {
     if (mappedValueY <= 10 || mappedValueY >= 170) {
@@ -127,7 +128,7 @@ void joystick1() {
     prevMessageSentY1 = myData.value;
     prevMappedValueY1 = mappedValueY; // Update the previous value
   }
-
+  */
 
   
 }
@@ -136,9 +137,10 @@ void joystick2() {
   int potValueX = analogRead(32);
   int potValueY = analogRead(33);
 
-  int mappedValueX = map(potValueX, 0, 4095, -255, 255);
+  int mappedValueX = map(potValueX, 0, 4095, 0, 180);
   int mappedValueY = map(potValueY, 0, 4095, 0, 180);
 
+  /*
   // Send motor speed change
   if (mappedValueX != prevMappedValueX2) {
     if (mappedValueX >= 240 || mappedValueX <= -240) {
@@ -154,18 +156,35 @@ void joystick2() {
     }
     prevMessageSentX2 = myData.value;
     prevMappedValueX2 = mappedValueX; // Update the previous value
+  } 
+  */
+
+  if (mappedValueX != prevMappedValueX2) {
+    if (mappedValueX <= 10 || mappedValueX >= 170) {
+      myData.value = mappedValueX;
+      myData.identifier = 'C'; // Identifier for servo
+      esp_now_send(receiverMAC, (uint8_t *) &myData, sizeof(myData)); // Send the update
+    } else {
+      myData.value = 93; // Default position
+      if (myData.value != prevMessageSentX2) {
+        myData.identifier = 'C'; // Identifier for servo
+        esp_now_send(receiverMAC, (uint8_t *) &myData, sizeof(myData)); // Send the update
+      }
+    }
+    prevMessageSentX2 = myData.value;
+    prevMappedValueX2 = mappedValueX; // Update the previous value
   }
 
   // Send servo angle change
   if (mappedValueY != prevMappedValueY2) {
     if (mappedValueY <= 10 || mappedValueY >= 170) {
       myData.value = mappedValueY;
-      myData.identifier = 'D'; // Identifier for servo
+      myData.identifier = 'S'; // Identifier for servo
       esp_now_send(receiverMAC, (uint8_t *) &myData, sizeof(myData)); // Send the update
     } else {
-      myData.value = 93; // Default position
+      myData.value = 90; // Default position
       if (myData.value!= prevMessageSentY2) {
-        myData.identifier = 'D'; // Identifier for servo
+        myData.identifier = 'S'; // Identifier for servo
         esp_now_send(receiverMAC, (uint8_t *) &myData, sizeof(myData)); // Send the update
       }
     }
@@ -185,12 +204,12 @@ void joystick3() {
   if (mappedValueX != prevMappedValueX3) {
     if (mappedValueX <= 10 || mappedValueX >= 170) {
       myData.value = mappedValueX;
-      myData.identifier = 'S'; // Identifier for left motor
+      myData.identifier = 'D'; // Identifier for left motor
       esp_now_send(receiverMAC, (uint8_t *) &myData, sizeof(myData)); // Send the update
     } else {
-      myData.value = 90;
+      myData.value = 93;
       if (myData.value!= prevMessageSentX3) {
-        myData.identifier = 'S'; // Identifier for left motor
+        myData.identifier = 'D'; // Identifier for left motor
         esp_now_send(receiverMAC, (uint8_t *) &myData, sizeof(myData)); // Send the update
       }
     }
