@@ -20,6 +20,7 @@ int prevMessageSentX3 = 90;
 int prevMessageSentY3 = 90;
 
 int prevMessageSentButton = 0;
+int SServoPos = 90;
 
 // MAC address of the receiver ESP32A4:CF:12:77:02:C4
 uint8_t receiverMAC[] = {0xA4, 0xCF, 0x12, 0x77, 0x02, 0xC4}; // Replace with actual MAC
@@ -176,21 +177,35 @@ void joystick2() {
   }
 
   // Send servo angle change
-  if (mappedValueY != prevMappedValueY2) {
-    if (mappedValueY <= 10 || mappedValueY >= 170) {
-      myData.value = mappedValueY;
+  //if (mappedValueY != prevMappedValueY2) {
+    if (mappedValueY >= 170 && SServoPos < 180) {
+      SServoPos++;
+      myData.value = SServoPos;
       myData.identifier = 'S'; // Identifier for servo
       esp_now_send(receiverMAC, (uint8_t *) &myData, sizeof(myData)); // Send the update
-    } else {
-      myData.value = 90; // Default position
-      if (myData.value!= prevMessageSentY2) {
-        myData.identifier = 'S'; // Identifier for servo
-        esp_now_send(receiverMAC, (uint8_t *) &myData, sizeof(myData)); // Send the update
-      }
+      delay(15);
     }
-    prevMessageSentY2 = myData.value;
-    prevMappedValueY2 = mappedValueY; // Update the previous value
-  }
+    if (mappedValueY <= 10 && SServoPos > 0 ) {
+      SServoPos--;
+      myData.value = SServoPos;
+      
+      myData.identifier = 'S'; // Identifier for servo
+      esp_now_send(receiverMAC, (uint8_t *) &myData, sizeof(myData)); // Send the update
+      delay(15);
+    }
+    
+    
+    
+    // } else {
+    //   myData.value = 90; // Default position
+    //   if (myData.value!= prevMessageSentY2) {
+    //     myData.identifier = 'S'; // Identifier for servo
+    //     esp_now_send(receiverMAC, (uint8_t *) &myData, sizeof(myData)); // Send the update
+    //   }
+    // }
+   // prevMessageSentY2 = myData.value;
+   // prevMappedValueY2 = mappedValueY; // Update the previous value
+  //}
 }
 
 void joystick3() {

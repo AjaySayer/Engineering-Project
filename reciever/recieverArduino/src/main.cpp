@@ -3,12 +3,12 @@
 #include <ESP32Servo.h>
 
 // Motor control pins
-const int motorPin1A = 21;
-const int motorPin2A = 17;
-const int enablePinA = 16;
+const int motorPin1A = A0;
+const int motorPin2A = A1;
+//const int enablePinA = 16;
 const int motorPin1B = 19;
 const int motorPin2B = 18;
-const int enablePinB = 5;
+//const int enablePinB = 5;
 
 
 // Servo objects and pins
@@ -25,8 +25,9 @@ typedef struct struct_message {
 struct_message incomingData;
 
 // Function declarations
-void controlMotor(int pin1, int pin2, int enablePin, int speed);
+void controlMotor(int pin1, int pin2, int speed);
 void processMessage(char identifier, int value);
+void set_motor_pwm(int IN1_PIN, int IN2_PIN, int pwm);
 
 // Callback function when data is received
 void OnDataRecv(const uint8_t *mac_addr, const uint8_t *data, int len) {
@@ -48,10 +49,10 @@ void setup() {
   // Initialize motor and servo pins
   pinMode(motorPin1A, OUTPUT);
   pinMode(motorPin2A, OUTPUT);
-  pinMode(enablePinA, OUTPUT);
+  //pinMode(enablePinA, OUTPUT);
   pinMode(motorPin1B, OUTPUT);
   pinMode(motorPin2B, OUTPUT);
-  pinMode(enablePinB, OUTPUT);
+  //pinMode(enablePinB, OUTPUT);
 
   continuousServo1.attach(continuousServo1Pin);
   continuousServo2.attach(continuousServo2Pin);
@@ -81,13 +82,13 @@ void loop() {
 void processMessage(char identifier, int value) {
   switch (identifier) {
     case 'L':  // Left motor
-      controlMotor(motorPin1A, motorPin2A, enablePinA, value);
+      set_motor_pwm(motorPin1A, motorPin2A, value);
       Serial.print("Left motor speed: ");
       Serial.println(value);
       break;
 
     case 'R':  // Right motor
-      controlMotor(motorPin1B, motorPin2B, enablePinB, value);
+      controlMotor(motorPin1B, motorPin2B, value);
       Serial.print("Right motor speed: ");
       Serial.println(value);
       break;
@@ -127,24 +128,39 @@ void processMessage(char identifier, int value) {
   }
 }
 
-// Function to control L298P motors
-void controlMotor(int pin1, int pin2, int enablePin, int speed) {
+// Function to control DRV8833 motors
+void controlMotor(int pin1, int pin2, int speed) {
   if (speed > 0) {
     // Move forward
-    digitalWrite(pin1, HIGH);
-    digitalWrite(pin2, LOW);
+    analogWrite(pin1, speed); // PWM on pin1 for speed control
+    digitalWrite(pin2, LOW);  // Set pin2 low
   } 
   else if (speed < 0) {
     // Move backward
-    digitalWrite(pin1, LOW);
-    digitalWrite(pin2, LOW);
-    speed = -speed;
+    digitalWrite(pin1, LOW);  // Set pin1 low
+    analogWrite(pin2, speed); // PWM on pin2 for speed control
   } 
   else {
-    // Stop the motor (brake)
-    digitalWrite(pin2, HIGH);
+    // Stop the motor
+    digitalWrite(pin1, LOW);
+    digitalWrite(pin2, LOW);
   }
+}
 
-  // Apply PWM to the enable pin to control motor speed
-  analogWrite(enablePin, speed);
+void set_motor_pwm(int IN1_PIN, int IN2_PIN, int pwm)
+{
+  if (pwm < 0) {  // reverse speeds
+    // Serial.println(-pwm);
+    digitalWrite(IN2_PIN, LOW);
+    digitalWrite(IN1_PIN, HIGH);
+    //analogWrite(IN1_PIN, -pwm);
+
+  } else if (pwm > 0) { // stop or forward
+    digitalWrite(IN1_PIN, LOW);
+    digitalWrite(IN2_PIN, HIGH);
+    //analogWrite(IN2_PIN, pwm);
+  } else {
+    digitalWrite(IN1_PIN, LOW);
+    digitalWrite(IN2_PIN, LOW);
+  }
 }
